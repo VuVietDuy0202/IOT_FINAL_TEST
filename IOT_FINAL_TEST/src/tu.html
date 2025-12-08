@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Giao diện Vui Như Trẻ Con — Dành cho 12 tuổi</title>
+    <style>
+      :root {
+        --bg: linear-gradient(135deg, #fffbbd, #c8f7ff);
+        --card: rgba(255, 255, 255, 0.9);
+        --accent: #ff6b6b;
+        --accent2: #4d96ff;
+        --radius: 18px;
+        --shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      }
+      * {
+        box-sizing: border-box;
+        font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: var(--bg);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 24px;
+      }
+      .logo {
+        width: 64px;
+        height: 64px;
+        background: var(--card);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        box-shadow: var(--shadow);
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+      p.subtitle {
+        margin: 0;
+        color: #555;
+      }
+
+      main {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+      .card {
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 18px;
+        box-shadow: var(--shadow);
+      }
+      .big-btn {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        width: 100%;
+        font-size: 18px;
+      }
+      .btn-pink {
+        background: linear-gradient(90deg, var(--accent), #ff9aa2);
+        color: white;
+      }
+      .btn-blue {
+        background: linear-gradient(90deg, var(--accent2), #7cc7ff);
+        color: white;
+      }
+
+      /* Quiz */
+      .quiz q {
+        font-style: italic;
+        color: #333;
+      }
+      .choices {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .choice {
+        padding: 10px;
+        border-radius: 10px;
+        border: 2px dashed rgba(0, 0, 0, 0.06);
+        cursor: pointer;
+      }
+      .choice.correct {
+        border-style: solid;
+        background: #e9ffd6;
+      }
+      .choice.wrong {
+        border-style: solid;
+        background: #ffe6e6;
+      }
+
+      /* Canvas draw */
+      .tools {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .color-swatch {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        cursor: pointer;
+        border: 2px solid rgba(0, 0, 0, 0.06);
+      }
+
+      footer {
+        padding: 12px;
+        text-align: center;
+        color: #444;
+      }
+
+      /* Responsive big icons */
+      .icon {
+        font-size: 36px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">🌟</div>
+      <div>
+        <h1>Thư Viện Vui Vẻ</h1>
+        <p class="subtitle">
+          Giao diện đơn giản, màu sắc tươi, cho trẻ 12 tuổi
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <!-- Quiz Card -->
+      <section class="card" aria-labelledby="quiz-title">
+        <h2 id="quiz-title">Trò chơi Quiz nhanh ⚡</h2>
+        <p>Trả lời 3 câu hỏi để nhận huy hiệu!</p>
+        <div class="quiz">
+          <div id="quiz-area">
+            <div id="question" style="font-size: 18px; margin-bottom: 8px">
+              Nhấn Bắt đầu để chơi.
+            </div>
+            <div class="choices" id="choices"></div>
+            <div style="display: flex; gap: 8px; margin-top: 12px">
+              <button class="big-btn btn-pink" id="start-quiz">Bắt đầu</button>
+              <button
+                class="big-btn btn-blue"
+                id="next-btn"
+                style="display: none"
+              >
+                Câu tiếp
+              </button>
+            </div>
+            <div id="score" style="margin-top: 12px; font-weight: 700"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Drawing Card -->
+      <section class="card" aria-labelledby="draw-title">
+        <h2 id="draw-title">Vẽ và tô màu ✏️</h2>
+        <p>Chọn màu, vẽ bằng chuột hoặc cảm ứng. Nhấn Xóa để bắt đầu lại.</p>
+        <div class="tools">
+          <div
+            class="color-swatch"
+            data-color="#000000"
+            style="background: #000"
+          ></div>
+          <div
+            class="color-swatch"
+            data-color="#FF6B6B"
+            style="background: #ff6b6b"
+          ></div>
+          <div
+            class="color-swatch"
+            data-color="#FFD166"
+            style="background: #ffd166"
+          ></div>
+          <div
+            class="color-swatch"
+            data-color="#06D6A0"
+            style="background: #06d6a0"
+          ></div>
+          <div
+            class="color-swatch"
+            data-color="#4D96FF"
+            style="background: #4d96ff"
+          ></div>
+          <button class="big-btn" id="clear-canvas" style="margin-left: auto">
+            Xóa
+          </button>
+        </div>
+        <canvas
+          id="paint"
+          width="600"
+          height="360"
+          style="
+            width: 100%;
+            border-radius: 12px;
+            border: 2px solid rgba(0, 0, 0, 0.06);
+            touch-action: none;
+          "
+        ></canvas>
+      </section>
+
+      <!-- Fun Facts Card -->
+      <section class="card" aria-labelledby="facts-title">
+        <h2 id="facts-title">Sự thật thú vị 💡</h2>
+        <ul id="facts-list">
+          <li>
+            Chuột cống có thể chạy nhanh gấp 5 lần bánh mì nướng? (Không hẳn!)
+          </li>
+          <li>Trái đất quay quanh trục mỗi ~24 giờ.</li>
+          <li>Con bướm nếm bằng chân.</li>
+        </ul>
+        <p style="margin-top: 12px">
+          Thêm sự thật trong mã để mở rộng bộ câu hỏi.
+        </p>
+      </section>
+
+      <!-- Simple Timer / Relax -->
+      <section class="card" aria-labelledby="timer-title">
+        <h2 id="timer-title">Giây Thư Giãn ⏳</h2>
+        <p>Bấm Start và thư giãn 1 phút!</p>
+        <div style="display: flex; gap: 8px; align-items: center">
+          <div id="timer" style="font-size: 28px; font-weight: 700">60</div>
+          <button class="big-btn btn-blue" id="start-timer">Start</button>
+          <button class="big-btn" id="stop-timer" style="display: none">
+            Dừng
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <small
+        >Thiết kế: dành cho học sinh 12 tuổi — Tùy chỉnh dễ dàng. Lưu file như
+        <code>index.html</code> và mở bằng trình duyệt.</small
+      >
+    </footer>
+
+    <script>
+      // === QUIZ ===
+      const quiz = [
+        {
+          q: "Mặt trời là gì?",
+          a: ["Một hành tinh", "Một ngôi sao", "Một vệ tinh"],
+          correct: 1,
+        },
+        { q: "Năm có bao nhiêu tháng?", a: ["10", "12", "14"], correct: 1 },
+        { q: "Con bướm nếm bằng gì?", a: ["Miệng", "Mắt", "Chân"], correct: 2 },
+      ];
+      let qi = 0;
+      let score = 0;
+      const qEl = document.getElementById("question");
+      const choicesEl = document.getElementById("choices");
+      const startBtn = document.getElementById("start-quiz");
+      const nextBtn = document.getElementById("next-btn");
+      const scoreEl = document.getElementById("score");
+
+      function showQuestion() {
+        const item = quiz[qi];
+        qEl.textContent = item.q;
+        choicesEl.innerHTML = "";
+        item.a.forEach((text, idx) => {
+          const d = document.createElement("div");
+          d.className = "choice";
+          d.textContent = text;
+          d.addEventListener("click", () => selectChoice(d, idx));
+          choicesEl.appendChild(d);
+        });
+        startBtn.style.display = "none";
+        nextBtn.style.display = "none";
+        scoreEl.textContent = "Câu " + (qi + 1) + " / " + quiz.length;
+      }
+      function selectChoice(el, idx) {
+        const correct = quiz[qi].correct;
+        if (idx === correct) {
+          el.classList.add("correct");
+          score++;
+        } else {
+          el.classList.add("wrong");
+          // show correct
+          Array.from(choicesEl.children)[correct].classList.add("correct");
+        }
+        // disable further clicks
+        Array.from(choicesEl.children).forEach(
+          (c) => (c.style.pointerEvents = "none")
+        );
+        nextBtn.style.display =
+          qi < quiz.length - 1 ? "inline-flex" : "inline-flex";
+        nextBtn.textContent = qi < quiz.length - 1 ? "Câu tiếp" : "Xem điểm";
+      }
+      startBtn.addEventListener("click", () => {
+        qi = 0;
+        score = 0;
+        showQuestion();
+      });
+      nextBtn.addEventListener("click", () => {
+        if (qi < quiz.length - 1) {
+          qi++;
+          showQuestion();
+        } else {
+          qEl.textContent =
+            "Bạn hoàn thành! Điểm: " + score + " / " + quiz.length;
+          choicesEl.innerHTML = "🎉 Chúc mừng!";
+          nextBtn.style.display = "none";
+          startBtn.style.display = "inline-flex";
+        }
+      });
+
+      // === CANVAS DRAW ===
+      const canvas = document.getElementById("paint");
+      const ctx = canvas.getContext("2d");
+      let painting = false;
+      let currentColor = "#000";
+      function resizeCanvas() {
+        // keep internal size; canvas styled to width:100%
+        const rect = canvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(rect.width * ratio);
+        canvas.height = Math.floor(rect.height * ratio);
+        ctx.scale(ratio, ratio);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 6;
+      }
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+      function startPos(e) {
+        painting = true;
+        draw(e);
+      }
+      function endPos() {
+        painting = false;
+        ctx.beginPath();
+      }
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        if (e.touches) e = e.touches[0];
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      }
+      function draw(e) {
+        if (!painting) return;
+        const p = getPos(e);
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = 8;
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+      }
+      canvas.addEventListener("mousedown", startPos);
+      canvas.addEventListener("mouseup", endPos);
+      canvas.addEventListener("mousemove", draw);
+      canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        startPos(e);
+      });
+      canvas.addEventListener("touchend", endPos);
+      canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        draw(e);
+      });
+
+      document.querySelectorAll(".color-swatch").forEach((s) =>
+        s.addEventListener("click", () => {
+          currentColor = s.dataset.color;
+        })
+      );
+      document.getElementById("clear-canvas").addEventListener("click", () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      });
+
+      // === TIMER ===
+      let timerInt = null;
+      let timeLeft = 60;
+      const timerEl = document.getElementById("timer");
+      document.getElementById("start-timer").addEventListener("click", () => {
+        timeLeft = 60;
+        timerEl.textContent = timeLeft;
+        document.getElementById("start-timer").style.display = "none";
+        document.getElementById("stop-timer").style.display = "inline-flex";
+        timerInt = setInterval(() => {
+          timeLeft--;
+          timerEl.textContent = timeLeft;
+          if (timeLeft <= 0) {
+            clearInterval(timerInt);
+            alert("Hết giờ! Hít thở sâu 3 lần 😊");
+            document.getElementById("start-timer").style.display =
+              "inline-flex";
+            document.getElementById("stop-timer").style.display = "none";
+          }
+        }, 1000);
+      });
+      document.getElementById("stop-timer").addEventListener("click", () => {
+        clearInterval(timerInt);
+        document.getElementById("start-timer").style.display = "inline-flex";
+        document.getElementById("stop-timer").style.display = "none";
+      });
+
+      // small accessibility: keyboard start quiz with Enter on Start
+      startBtn.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") startBtn.click();
+      });
+    </script>
+  </body>
+</html>
