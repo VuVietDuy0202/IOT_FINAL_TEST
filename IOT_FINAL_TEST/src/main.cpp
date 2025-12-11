@@ -1,256 +1,159 @@
 #include <Arduino.h>
-
-// Include các module đã có
+#include <math.h>
 #include "modules/sensor_module.h"
-#include "modules/analytics_module.h"
-#include "modules/alert_module.h"
 #include "modules/network_module.h"
-// BIẾN TOÀN CỤC
+#define VIBRATION_BUFFER_SIZE 20
+float vibrationBuffer[VIBRATION_BUFFER_SIZE];
+int bufferIndex = 0;
+
+// Baseline
+struct { float accelX, accelY, accelZ; bool isCalibrated; } baseline = {0, 0, 1, false};
 unsigned long lastSensorRead = 0;
 unsigned long lastPublish = 0;
-unsigned long lastHeartbeat = 0;
+SensorData currentData;
+AlertLevel currentAlert = ALERT_NONE;
+float currentVibration = 0.0;
+float currentVibrationP2P = 0.0;
+float currentRoll = 0.0;
+float currentPitch = 0.0;
+float totalTilt = 0.0;
+void analyzeSensorData() {
+    float ax = currentData.mpu.accelX;
+    float ay = currentData.mpu.accelY;
+    float az = currentData.mpu.accelZ;
+    float mag = sqrt(ax*ax + ay*ay + az*az) - 1.0;
+    float accelTotal = sqrt(ax*ax + ay*ay + az*az); 
+    vibrationBuffer[bufferIndex++] = mag;
+    if (bufferIndex >= VIBRATION_BUFFER_SIZE) bufferIndex = 0;
+    float sumSq = 0;
+    float maxVal = -1e9;
+    float minVal = 1e9;
+    for (int i = 0; i < VIBRATION_BUFFER_SIZE; i++) {
+        sumSq += vibrationBuffer[i] * vibrationBuffer[i];
+        if (vibrationBuffer[i] > maxVal) maxVal = vibrationBuffer[i];
+        if (vibrationBuffer[i] < minVal) minVal = vibrationBuffer[i];
+    }
+    
+    currentVibration = sqrt(sumSq / VIBRATION_BUFFER_SIZE);
+    currentVibrationP2P = maxVal - minVal;
+    
+    // 4. Roll & Pitch
+    currentData.mpu.roll = sensorGetRoll();
+    currentData.mpu.pitch = sensorGetPitch();
+    totalTilt = sqrt(currentData.mpu.roll*currentData.mpu.roll + currentData.mpu.pitch*currentData.mpu.pitch); 
+    float gasPPM = currentData.gas.ppm-150;
+    bool isGasCritical = (gasPPM >= GAS_CRITICAL_PPM);
+    bool isGasWarning = (gasPPM >= GAS_WARNING_PPM);
+    bool isShock = (accelTotal > 3.0f);
+    bool isVibrationCritical = (currentVibration >= VIBRATION_CRITICAL);
+    bool isVibrationWarning = (currentVibration >= VIBRATION_WARNING);
+    bool isTiltDanger = (totalTilt >= TILT_DANGER_ANGLE);
+    bool isTiltWarning = (totalTilt >= TILT_WARNING_ANGLE);
+    bool isTempAbnormal = (currentData.dht.temperature > TEMP_MAX_CONCRETE);
+    bool isHumidityLow = (currentData.dht.humidity < HUMIDITY_MIN_CONCRETE);
+    if (isGasCritical) {
+        currentAlert = ALERT_CRITICAL;
+        currentData.eventType = EVENT_GAS_CRITICAL;
+    }
+    else if (isShock) {
+        currentAlert = ALERT_CRITICAL;
+        currentData.eventType = EVENT_CRASH;
+    }
+    else if (isVibrationCritical) {
+        currentAlert = ALERT_CRITICAL;
+        currentData.eventType = EVENT_CRASH;
+    }
+    else if (isTiltDanger) {
+        currentAlert = ALERT_CRITICAL;
+        currentData.eventType = EVENT_TILT_DANGER;
+    }
+    // === WARNING ===
+    else if (isGasWarning) {
+        currentAlert = ALERT_WARNING;
+        currentData.eventType = EVENT_GAS_WARNING;
+    }
+    else if (isVibrationWarning) {
+        currentAlert = ALERT_WARNING;
+        currentData.eventType = EVENT_VIBRATION_HIGH;
+    }
+    else if (isTiltWarning) {
+        currentAlert = ALERT_WARNING;
+        currentData.eventType = EVENT_TILT_WARNING;
+    }
+    else if (isTempAbnormal) {
+        currentAlert = ALERT_WARNING;
+        currentData.eventType = EVENT_TEMP_ABNORMAL;
+    }
+    else if (isHumidityLow) {
+        currentAlert = ALERT_WARNING;
+        currentData.eventType = EVENT_HUMIDITY_LOW;
+    }
+    // === NORMAL ===
+    else {
+        currentAlert = ALERT_NONE;
+        currentData.eventType = EVENT_NORMAL;
+    }
+}
 
-SensorData currentSensorData;
-AnalyticsData currentAnalytics;
-
-// SETUP - Chạy 1 lần khi khởi động
+void controlBuzzer() {
+    if (buzzerRemoteControl) {
+        digitalWrite(PIN_BUZZER, LOW);
+    } else {
+        if (currentAlert == ALERT_CRITICAL) {
+            digitalWrite(PIN_BUZZER, LOW); 
+        } else {
+            digitalWrite(PIN_BUZZER, HIGH);  
+        }
+    }
+}
 
 void setup() {
-    // Khởi tạo Serial
     Serial.begin(SERIAL_BAUD_RATE);
-    delay(2000);
-    
-    Serial.println("\n\n========================================");
-    Serial.println("  IOT BLACKBOX - Starting..."); 
-    
-    Serial.println("  Firmware: " + String(FIRMWARE_VERSION));
-    Serial.println("========================================\n");
-
-
-    // 1. Khởi tạo cảm biến
-    Serial.println("[MAIN] Initializing sensors...");
-    sensorInit();
-    delay(1000);
-
-    // 2. Test cảm biến
-    if (sensorIsOnline()) {
-        sensorTest();
-    } else {
-        Serial.println("[MAIN] ERROR: Sensors initialization failed!");
+    pinMode(PIN_BUZZER, OUTPUT);
+    digitalWrite(PIN_BUZZER, HIGH);  
+    for (int i = 0; i < VIBRATION_BUFFER_SIZE; i++) {
+        vibrationBuffer[i] = 0.0;
     }
-    
-    // 3. Hiệu chuẩn (Calibration)
-    Serial.println("\n[MAIN] Calibrating... Keep device STILL for 3 seconds!");
+    sensorInit();
+    Serial.println("Calibrating... Giữ yên 3s");
     delay(3000);
-    
-    MPU6050Data mpu = sensorReadMPU();
-    analyticsCalibrate(mpu);
-    
-    // 4. Khởi tạo analytics
-    analyticsInit();
-    
-    // 5. Khởi tạo alert (còi)
-    alertInit();
-    
-    // 6. Khởi tạo network (WiFi + MQTT)
-    Serial.println("\n[MAIN] Connecting to network...");
+    SensorData cal = sensorReadAll();
+    baseline.accelX = cal.mpu.accelX;
+    baseline.accelY = cal.mpu.accelY;
+    baseline.accelZ = cal.mpu.accelZ;
+    baseline.isCalibrated = true;
     networkInit();
-    
-    // 7. Phát tiếng beep báo sẵn sàng
-    Serial.println("\n[MAIN] System ready!");
-    alertBeep(200);
-    delay(100);
-    alertBeep(200);
-    
-    Serial.println("========================================\n");
+    Serial.println("✅ READY\n");
 }
-
-// ============================================
-// LOOP - Chạy liên tục
-// ============================================
 void loop() {
+    static unsigned long lastMPURead = 0;        
+    static unsigned long lastSlowRead = 0;       
+    static unsigned long lastPrint = 0;          
     unsigned long now = millis();
-    
-    // ============================================
-    // 1. DUY TRÌ KẾT NỐI MẠNG
-    // ============================================
     networkMaintain();
-    
-    // ============================================
-    // 2. ĐỌC CẢM BIẾN (Mỗi 1 giây)
-    // ============================================
-    if (now - lastSensorRead >= SENSOR_READ_INTERVAL) {
-        lastSensorRead = now;
-        // Đọc tất cả cảm biến
-        currentSensorData = sensorReadAll();
-        
-        // Phân tích dữ liệu
-        currentAnalytics = analyticsProcess(currentSensorData);
-        
-        // Cập nhật analytics vào sensor data
-        currentSensorData.analytics = currentAnalytics;
-        
-        // In dữ liệu ra Serial (debug)
-        printSensorData();
-        
-        // ============================================
-        // 3. KIỂM TRA CẢNH BÁO
-        // ============================================
-        AlertLevel alertLevel = currentAnalytics.alertLevel;
-        
-        if (alertLevel >= ALERT_WARNING) {
-            // Có cảnh báo -> Kích hoạt
-            const char* message = getAlertMessage(currentAnalytics);
-            alertTrigger(alertLevel, message);
-            
-            // Xác định event type
-            currentSensorData.eventType = getEventType(currentAnalytics);
-            
-        } else {
-            // Không có cảnh báo -> Tắt còi
-            if (alertGetCurrentLevel() != ALERT_NONE) {
-                alertStop();
-            }
-            currentSensorData.eventType = EVENT_NORMAL;
+    sensorTest();
+    if (now - lastMPURead >= 4) {
+        lastMPURead = now;
+        currentData.mpu = sensorReadMPU(); 
+        analyzeSensorData();  
+        controlBuzzer();
+        if (now - lastPrint >= 100) {
+            lastPrint = now;
+            Serial.printf("[DATA] R=%.1f° P=%.1f° RMS=%.2f Gas=%.0fppm → %s | %s\n",
+                          currentData.mpu.roll, currentData.mpu.pitch, 
+                          currentVibration, currentData.gas.ppm,
+                          alertLevelToString(currentAlert),
+                          eventTypeToString(currentData.eventType));
         }
     }
-    
-    // ============================================
-    // 4. CẬP NHẬT PATTERN CÒI
-    // ============================================
-    alertUpdate();
-    
-    // ============================================
-    // 5. PUBLISH DỮ LIỆU LÊN MQTT (Mỗi 5 giây)
-    // ============================================
+    if (now - lastSlowRead >= 1000) {
+        lastSlowRead = now;
+        currentData.dht = sensorReadDHT();    
+        currentData.gas = sensorReadGas();    
+        currentData.timestamp = millis();
+    }
     if (networkIsConnected() && (now - lastPublish >= MQTT_PUBLISH_INTERVAL)) {
         lastPublish = now;
-        
-        // Gửi dữ liệu cảm biến
-        bool success = networkPublishSensorData(currentSensorData);
-        
-        if (success) {
-            Serial.println("[MAIN] Data published to MQTT");
-        }
-        
-        // Nếu có cảnh báo, gửi riêng alert message
-        if (currentAnalytics.alertLevel >= ALERT_WARNING) {
-            networkPublishAlert(
-                currentAnalytics.alertLevel, 
-                alertGetMessage()
-            );
-        }
+        networkPublish(currentData, currentAlert, currentVibration, totalTilt);
     }
-    
-    // ============================================
-    // 6. HEARTBEAT - Gửi trạng thái hệ thống (Mỗi 30s)
-    // ============================================
-    if (now - lastHeartbeat >= HEARTBEAT_INTERVAL) {
-        lastHeartbeat = now;
-        
-        SystemStatus status = getSystemStatus();
-        networkPublishStatus(status);
-        
-        Serial.println("[MAIN] Heartbeat sent");
-    }
-    
-    // Delay nhỏ để tránh watchdog timeout
-    delay(10);
-}
-
-// ============================================
-// HÀM HỖ TRỢ - IN DỮ LIỆU CẢM BIẾN
-// ============================================
-void printSensorData() {
-    Serial.println("\n----- SENSOR DATA -----");
-    
-    // DHT22
-    Serial.print("Temp: ");
-    Serial.print(currentSensorData.dht.temperature);
-    Serial.print(" °C | Humidity: ");
-    Serial.print(currentSensorData.dht.humidity);
-    Serial.println(" %");
-    
-    // MPU6050 - Gia tốc
-    Serial.print("Accel X: ");
-    Serial.print(currentSensorData.mpu.accelX, 3);
-    Serial.print(" | Y: ");
-    Serial.print(currentSensorData.mpu.accelY, 3);
-    Serial.print(" | Z: ");
-    Serial.print(currentSensorData.mpu.accelZ, 3);
-    Serial.println(" g");
-    
-    // Analytics
-    Serial.print("Tilt Angle: ");
-    Serial.print(currentAnalytics.tiltAngle, 2);
-    Serial.print(" ° | Vibration: ");
-    Serial.print(currentAnalytics.vibrationLevel, 3);
-    Serial.println(" g");
-    
-    Serial.print("Concrete Safe: ");
-    Serial.print(currentAnalytics.isConcreteSafe ? "YES" : "NO");
-    Serial.print(" | Alert: ");
-    Serial.println(alertLevelToString(currentAnalytics.alertLevel));
-    
-    Serial.println("-----------------------");
-}
-
-// ============================================
-// HÀM HỖ TRỢ - LẤY MESSAGE CẢNH BÁO
-// ============================================
-const char* getAlertMessage(const AnalyticsData& analytics) {
-    if (analytics.vibrationLevel >= VIBRATION_CRITICAL) {
-        return "CRITICAL: High vibration detected!";
-    }
-    if (analytics.tiltAngle >= TILT_DANGER_ANGLE) {
-        return "CRITICAL: Dangerous tilt angle!";
-    }
-    if (analytics.vibrationLevel >= VIBRATION_WARNING) {
-        return "WARNING: Elevated vibration";
-    }
-    if (analytics.tiltAngle >= TILT_WARNING_ANGLE) {
-        return "WARNING: Structure tilting";
-    }
-    if (!analytics.isConcreteSafe) {
-        return "WARNING: Concrete curing at risk";
-    }
-    return "System OK";
-}
-
-// ============================================
-// HÀM HỖ TRỢ - XÁC ĐỊNH EVENT TYPE
-// ============================================
-EventType getEventType(const AnalyticsData& analytics) {
-    if (analytics.vibrationLevel >= VIBRATION_CRITICAL) {
-        return EVENT_CRASH;
-    }
-    if (analytics.tiltAngle >= TILT_DANGER_ANGLE) {
-        return EVENT_TILT_DANGER;
-    }
-    if (analytics.vibrationLevel >= VIBRATION_WARNING) {
-        return EVENT_VIBRATION_HIGH;
-    }
-    if (analytics.tiltAngle >= TILT_WARNING_ANGLE) {
-        return EVENT_TILT_WARNING;
-    }
-    if (!analytics.isConcreteSafe) {
-        return EVENT_HUMIDITY_LOW;
-    }
-    return EVENT_NORMAL;
-}
-
-// ============================================
-// HÀM HỖ TRỢ - LẤY TRẠNG THÁI HỆ THỐNG
-// ============================================
-SystemStatus getSystemStatus() {
-    SystemStatus status;
-    
-    status.wifiStatus = networkGetWiFiStatus();
-    status.mqttStatus = networkGetMQTTStatus();
-    status.sensorsOnline = sensorIsOnline();
-    status.uptime = millis();
-    status.freeHeapKB = ESP.getFreeHeap() / 1024.0;
-    status.otaStatus = OTA_IDLE; // Sẽ dùng khi có ota_module
-    
-    return status;
 }
