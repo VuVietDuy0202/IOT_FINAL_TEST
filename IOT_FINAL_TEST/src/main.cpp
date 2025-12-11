@@ -2,6 +2,12 @@
 #include <math.h>
 #include "modules/sensor_module.h"
 #include "modules/network_module.h"
+#include "modules/ota_module.h"
+extern "C" {
+    #include "esp_ota_ops.h"
+    #include "esp_partition.h"
+}
+
 #define VIBRATION_BUFFER_SIZE 20
 float vibrationBuffer[VIBRATION_BUFFER_SIZE];
 int bufferIndex = 0;
@@ -14,8 +20,6 @@ SensorData currentData;
 AlertLevel currentAlert = ALERT_NONE;
 float currentVibration = 0.0;
 float currentVibrationP2P = 0.0;
-float currentRoll = 0.0;
-float currentPitch = 0.0;
 float totalTilt = 0.0;
 void analyzeSensorData() {
     float ax = currentData.mpu.accelX;
@@ -94,7 +98,15 @@ void analyzeSensorData() {
         currentData.eventType = EVENT_NORMAL;
     }
 }
-
+void ledControl() {
+    if (currentAlert == ALERT_CRITICAL) {
+        digitalWrite(LED1, HIGH);
+        digitalWrite(LED2, LOW);
+    }  else {
+        digitalWrite(LED1, LOW);
+        digitalWrite(LED2, HIGH);
+    }
+}
 void controlBuzzer() {
     if (buzzerRemoteControl) {
         digitalWrite(PIN_BUZZER, LOW);
@@ -106,10 +118,31 @@ void controlBuzzer() {
         }
     }
 }
+void TaskBootButton(void *pvParameters) {
+    pinMode(BOOT_PIN, INPUT_PULLUP);
+    uint16_t pressTime = 0;
+    const uint16_t PRESS_THRESHOLD = 600; // 600 * 10ms = 6000ms
 
+    while (1) {
+        if (digitalRead(BOOT_PIN) == LOW) {
+            pressTime++;
+            if (pressTime >= PRESS_THRESHOLD) {
+                Serial.println("[BOOT] Nhấn nút >6s → Factory!");
+                switchToFactory();
+                pressTime = 0;
+            }
+        } else {
+            pressTime = 0;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 void setup() {
     Serial.begin(SERIAL_BAUD_RATE);
+    delay(1000);
     pinMode(PIN_BUZZER, OUTPUT);
+    pinMode(LED1, OUTPUT);
+    pinMode(LED2, OUTPUT);
     digitalWrite(PIN_BUZZER, HIGH);  
     for (int i = 0; i < VIBRATION_BUFFER_SIZE; i++) {
         vibrationBuffer[i] = 0.0;
@@ -123,7 +156,10 @@ void setup() {
     baseline.accelZ = cal.mpu.accelZ;
     baseline.isCalibrated = true;
     networkInit();
-    Serial.println("✅ READY\n");
+    xTaskCreate(TaskBootButton, "BootButton", 4096, NULL, 1, NULL);
+    
+    Serial.println("READY\n");
+    xTaskCreate(TaskBootButton, "BootButtonTask", 2048, NULL, 1, NULL);
 }
 void loop() {
     static unsigned long lastMPURead = 0;        
@@ -131,11 +167,12 @@ void loop() {
     static unsigned long lastPrint = 0;          
     unsigned long now = millis();
     networkMaintain();
-    sensorTest();
+    //sensorTest();
     if (now - lastMPURead >= 4) {
         lastMPURead = now;
         currentData.mpu = sensorReadMPU(); 
         analyzeSensorData();  
+        ledControl();
         controlBuzzer();
         if (now - lastPrint >= 100) {
             lastPrint = now;

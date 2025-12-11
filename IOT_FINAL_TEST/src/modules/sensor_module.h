@@ -3,22 +3,18 @@
 
 #include <Arduino.h>
 #include <DHT.h>
-#include <Wire.h>
-#include <MPU6050.h>
-#include "../../include/app_types.h"    // ← SỬA
-#include "../../include/config.h"       // ← SỬA
+#include "../../include/app_types.h"
+#include "../../include/config.h"
+
 extern DHT dhtSensor;
-extern MPU6050 mpuSensor;
-extern bool sensorInitialized;
-
-// Khởi tạo cảm biến
+extern bool sensorInitialized; 
 void sensorInit();
-
-// Đọc dữ liệu từ DHT22
-DHT22Data sensorReadDHT();
+DHT11Data sensorReadDHT();
 MPU6050Data sensorReadMPU();
 SensorData sensorReadAll();
+GasData sensorReadGas();  
+float sensorGetRoll(); 
+float sensorGetPitch();  
 bool sensorIsOnline();
 void sensorTest();
-
 #endif

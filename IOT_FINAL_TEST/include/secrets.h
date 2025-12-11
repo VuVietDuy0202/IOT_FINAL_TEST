@@ -1,49 +1,51 @@
 #ifndef SECRETS_H
 #define SECRETS_H
 
-// ============================================
-// WIFI CREDENTIALS
-// ============================================
-#define WIFI_SSID "SkyNet"           // Tên WiFi
-#define WIFI_PASSWORD "12345678123"   // Mật khẩu WiFi
-// ============================================
-// MQTT CREDENTIALS
-// ============================================
+// WiFi
+#define WIFI_SSID "Minh Ha"
+#define WIFI_PASSWORD "huuson4891"
+
+// MQTT
+#define MQTT_BROKER "ke19046e.ala.asia-southeast1.emqxsl.com"
+#define MQTT_PORT 8883
 #define MQTT_USERNAME "DUY2"
 #define MQTT_PASSWORD "DUY"
-#define MQTT_CLIENT_ID "IOT_BLACKBOX_001"  // ID duy nhất cho client
+#define MQTT_CLIENT_ID "IOT_BLACKBOX_001"
 
-// ============================================
-// OTA UPDATE PASSWORD
-// ============================================
-#define OTA_PASSWORD "admin123"            // Mật khẩu để bảo vệ OTA
+// OTA
+#define OTA_UPDATE_KEY "Duy@"  // ← THÊM: Key bảo mật
 
-// ============================================
-// API KEYS (Nếu cần)
-// ============================================
-// #define OPENWEATHER_API_KEY "your_api_key_here"
-// #define FIREBASE_API_KEY "your_firebase_key"
+// ...existing code...
 
-// ============================================
-// TLS/SSL CERTIFICATES (Cho MQTTS)
-// ============================================
-// Root CA Certificate cho EMQX
-const char* MQTT_ROOT_CA = R"EOF(
+// TLS Certificate (optional, raw string literal)
+static const char* ROOT_CA_CERT = R"EOF(
 -----BEGIN CERTIFICATE-----
-MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh
+MIIEfjCCA2agAwIBAgIQD+Ayq4RNAzEGxQyOE8iwaDANBgkqhkiG9w0BAQsFADBh
 MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
 d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD
-QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT
-... (Copy toàn bộ certificate của bạn vào đây)
+QTAeFw0yNDAxMTgwMDAwMDBaFw0zMTExMDkyMzU5NTlaMGExCzAJBgNVBAYTAlVT
+MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j
+b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IEcyMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuzfNNNx7a8myaJCtSnX/RrohCgiN9RlUyfuI
+2/Ou8jqJkTx65qsGGmvPrC3oXgkkRLpimn7Wo6h+4FR1IAWsULecYxpsMNzaHxmx
+1x7e/dfgy5SDN67sH0NO3Xss0r0upS/kqbitOtSZpLYl6ZtrAGCSYP9PIUkY92eQ
+q2EGnI/yuum06ZIya7XzV+hdG82MHauVBJVJ8zUtluNJbd134/tJS7SsVQepj5Wz
+tCO7TG1F8PapspUwtP1MVYwnSlcUfIKdzXOS0xZKBgyMUNGPHgm+F6HmIcr9g+UQ
+vIOlCsRnKPZzFBQ9RnbDhxSJITRNrw9FDKZJobq7nMWxM4MphQIDAQABo4IBMDCC
+ASwwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUTiJUIBiV5uNu5g/6+rkS7QYX
+jzkwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUwDgYDVR0PAQH/BAQD
+AgGGMHQGCCsGAQUFBwEBBGgwZjAjBggrBgEFBQcwAYYXaHR0cDovL29jc3AuZGln
+aWNlcnQuY24wPwYIKwYBBQUHMAKGM2h0dHA6Ly9jYWNlcnRzLmRpZ2ljZXJ0LmNu
+L0RpZ2lDZXJ0R2xvYmFsUm9vdENBLmNydDBABgNVHR8EOTA3MDWgM6Axhi9odHRw
+Oi8vY3JsLmRpZ2ljZXJ0LmNuL0RpZ2lDZXJ0R2xvYmFsUm9vdENBLmNybDARBgNV
+HSAECjAIMAYGBFUdIAAwDQYJKoZIhvcNAQELBQADggEBAHRBl3jN7+XHBUK0dZnu
+hMdoNwD1nCROU3BTIh1TNzRI0bQ0m5+C/dCRzzlqoSAFHUlOi+OiDltWkXTzmQn6
+Z8bH5PFBy5sYpc/8cNPoSzhyqcpvvEZvv/Ivc0Up+dzma7vBDJC9WrMRUUlSFSQp
+kdXSmphDNkXJsgARmxzc18IN6LYMRiOWlY7RE2F900pPW60BvJHHNCX0bbSRj/Ql
+bmVq8wuftBD++D+RS8K++ujpMjFBROyWfBX+woQDGsMazkmgulQdnZrdj476elOL
+axRvrSgEorju1kJM7M65z2RUZrfzQYW/1rs8mRUXin6iEtad/Rv1ZI1WGYmWPyBm
+pbo=
 -----END CERTIFICATE-----
 )EOF";
-
-// ============================================
-// SECURITY NOTES
-// ============================================
-// ⚠️ QUAN TRỌNG:
-// 1. KHÔNG commit file này lên GitHub/GitLab
-// 2. Thêm "secrets.h" vào file .gitignore
-// 3. Tạo file "secrets_template.h" để chia sẻ với team (không chứa thông tin thật)
 
 #endif
